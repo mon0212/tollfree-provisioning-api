@@ -1,6 +1,6 @@
 # Toll-Free Number Provisioning API
 
-A Java 17 / Spring Boot service for managing telecom customers and toll-free number provisioning. It exposes a REST API, enforces the number lifecycle, records audit actions, publishes JSON Kafka events, caches status reads in Redis, and sends email notifications via a Kafka consumer.
+A Java 17 / Spring Boot service for managing telecom customers and toll-free number provisioning. It exposes a REST API, enforces the number lifecycle, records audit actions, publishes JSON Kafka events, caches status reads in Redis, sends email notifications via a Kafka consumer, and includes an AI provisioning assistant powered by Ollama.
 
 ## Architecture
 
@@ -135,6 +135,75 @@ mvn verify
 ```
 
 JaCoCo generates its report at `target/site/jacoco/index.html`. The existing unit tests cover reservation/event publication, missing/invalid lifecycle states, provisioning failure notification, and provisioning persistence. Add Testcontainers-based HTTP/Kafka/Redis integration tests in CI for an enforceable 80% coverage gate.
+
+## AI Provisioning Assistant
+
+A local AI agent (`agent/agent.py`) lets you manage numbers and customers using plain English. It runs as a Python Flask server on port `5001`, connects to a local [Ollama](https://ollama.com) instance, and calls your existing REST API as tools.
+
+### Prerequisites
+
+- [Ollama](https://ollama.com) installed and running
+- `llama3.2` model pulled: `ollama pull llama3.2`
+- Python dependencies: `pip install flask flask-cors requests`
+
+### Start the agent
+
+```bash
+cd agent
+python agent.py
+```
+
+Then open `agent/index.html` in your browser.
+
+### Example prompts
+
+**Customers**
+
+| What you want | Prompt |
+|---|---|
+| Create | `Create a customer named Acme Corp with email acme@example.com` |
+| Look up | `Get customer with ID <uuid>` |
+| List all | `List all customers` |
+
+**Numbers**
+
+| What you want | Prompt |
+|---|---|
+| Import | `Import toll-free number 8005551234` |
+| Check status | `What is the status of 8005551234?` |
+
+**Provisioning & Lifecycle**
+
+| What you want | Prompt |
+|---|---|
+| Provision (reserve) | `Provision number 8005551234 for customer <uuid>` |
+| Activate | `Activate number 8005551234` |
+| Suspend | `Suspend number 8005551234` |
+| Resume | `Reactivate number 8005551234` |
+| Release | `Release number 8005551234` |
+| Cancel reservation | `Cancel the reservation for 8005551234` |
+
+**Multi-step in one prompt**
+
+> `Create a customer named Test with email test@example.com, import number 8007778888, then provision it for that customer`
+
+**Tips**
+- For provisioning you need the customer UUID — say `List all customers` first to get it, then follow up with `Provision 8005551234 for customer <id>`.
+- If the model describes instead of doing, add: *"actually do it"* or *"go ahead and make the API call"*.
+- Each assistant reply shows expandable **⚙ tool call** badges below the bubble — click them to see the exact API request and response.
+
+### Architecture
+
+```text
+Browser (agent/index.html)
+      │  POST /chat
+      ▼
+agent/agent.py  (Flask, port 5001)
+  ├── sends message + tool definitions to Ollama (llama3.2)
+  ├── Ollama decides which tool to call
+  ├── agent.py executes the tool → calls your REST API at :8080
+  └── returns plain-English reply to the browser
+```
 
 ## Design notes
 
