@@ -1,0 +1,2 @@
+package com.telecom.tollfree.messaging; import org.springframework.kafka.core.KafkaTemplate; import org.springframework.stereotype.Component;
+@Component public class NumberEventPublisher { private final KafkaTemplate<String,NumberEvent> kafka; public NumberEventPublisher(KafkaTemplate<String,NumberEvent> k){kafka=k;} public void publish(NumberEvent e){kafka.send("tollfree.number.events",e.number(),e);} }

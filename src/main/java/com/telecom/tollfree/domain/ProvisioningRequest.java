@@ -1,0 +1,3 @@
+package com.telecom.tollfree.domain;
+import jakarta.persistence.*; import java.time.Instant;
+@Entity @Table(name="provisioning_requests",uniqueConstraints=@UniqueConstraint(name="uk_provision_customer_number",columnNames={"customer_id","number"})) public class ProvisioningRequest { @Id @GeneratedValue(strategy=GenerationType.UUID) private String id; @Column(name="customer_id",nullable=false) private String customerId; @Column(name="number",nullable=false) private String number; @Column(nullable=false) private Instant createdAt=Instant.now(); protected ProvisioningRequest(){} public ProvisioningRequest(String c,String n){customerId=c;number=n;} public String getId(){return id;} public String getCustomerId(){return customerId;} public String getNumber(){return number;} }

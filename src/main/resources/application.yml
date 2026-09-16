@@ -1,0 +1,41 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/tollfree
+    username: tollfree
+    password: tollfree
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  kafka:
+    bootstrap-servers: "${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.telecom.tollfree.messaging
+  data:
+    redis:
+      host: "${REDIS_HOST:localhost}"
+      port: 6379
+  cache:
+    type: redis
+    redis:
+      time-to-live: 10m
+  sql:
+    init:
+      mode: always
+  mail:
+    host: "${MAIL_HOST:localhost}"
+    port: "${MAIL_PORT:1025}"
+    properties:
+      mail.smtp.auth: false
+      mail.smtp.starttls.enable: false
+app:
+  jwt:
+    secret: "${JWT_SECRET:change-this-to-a-32-byte-minimum-secret-key}"
+  mail:
+    from: "${MAIL_FROM:noreply@tollfree.local}"

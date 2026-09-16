@@ -1,0 +1,3 @@
+package com.telecom.tollfree.domain;
+import jakarta.persistence.*; import java.time.Instant;
+@Entity @Table(name="customers", indexes=@Index(name="ix_customer_email",columnList="email",unique=true)) public class Customer { @Id @GeneratedValue(strategy=GenerationType.UUID) private String id; @Column(nullable=false) private String name; @Column(nullable=false,unique=true) private String email; @Column(nullable=false) private Instant createdAt=Instant.now(); public String getId(){return id;} public String getName(){return name;} public String getEmail(){return email;} public void setName(String v){name=v;} public void setEmail(String v){email=v;} }
