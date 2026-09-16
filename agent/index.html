@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Toll-Free Provisioning Assistant</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+      background: #f0f2f5;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 760px;
+      height: 92vh;
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+      overflow: hidden;
+    }
+
+    header {
+      padding: 18px 24px;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #22c55e;
+    }
+    header h1 { font-size: 16px; font-weight: 600; color: #1f2328; }
+    header span { font-size: 13px; color: #57606a; margin-left: auto; }
+
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .message { display: flex; flex-direction: column; gap: 4px; max-width: 85%; }
+    .message.user { align-self: flex-end; align-items: flex-end; }
+    .message.assistant { align-self: flex-start; align-items: flex-start; }
+
+    .bubble {
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .message.user .bubble {
+      background: #3b82d4;
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+    .message.assistant .bubble {
+      background: #f7f8fa;
+      color: #1f2328;
+      border: 1px solid #e5e7eb;
+      border-bottom-left-radius: 4px;
+    }
+
+    .tool-calls {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 2px;
+    }
+    .tool-call {
+      font-size: 12px;
+      color: #57606a;
+      background: #f0f2f5;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+    .tool-call summary { list-style: none; display: flex; align-items: center; gap: 6px; }
+    .tool-call summary::before { content: "⚙"; font-size: 11px; }
+    .tool-call pre {
+      margin-top: 6px;
+      font-size: 11px;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      padding: 8px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+    }
+
+    .typing {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 10px 14px;
+      background: #f7f8fa;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      border-bottom-left-radius: 4px;
+      width: fit-content;
+    }
+    .typing span {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #57606a;
+      animation: bounce 1.2s infinite;
+    }
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-6px); }
+    }
+
+    .suggestions {
+      padding: 0 24px 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .suggestion {
+      font-size: 12px;
+      color: #3b82d4;
+      border: 1px solid #3b82d4;
+      border-radius: 16px;
+      padding: 4px 12px;
+      cursor: pointer;
+      background: none;
+      transition: background 0.15s;
+    }
+    .suggestion:hover { background: #eff6ff; }
+
+    .input-row {
+      padding: 16px 24px;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      gap: 10px;
+    }
+    #input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+      resize: none;
+      font-family: inherit;
+      height: 42px;
+      line-height: 1.4;
+      transition: border-color 0.15s;
+    }
+    #input:focus { border-color: #3b82d4; }
+    #send {
+      padding: 0 20px;
+      background: #3b82d4;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    #send:hover { background: #2563eb; }
+    #send:disabled { background: #93c5fd; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="dot"></div>
+    <h1>Toll-Free Provisioning Assistant</h1>
+    <span>llama3.2 · Ollama</span>
+  </header>
+
+  <div id="messages">
+    <div class="message assistant">
+      <div class="bubble">Hi! I can help you manage toll-free numbers and customers.
+
+Try asking me to:
+• Create a customer
+• Import a toll-free number
+• Provision a number for a customer
+• Activate, suspend, or release a number
+• Look up a number's status</div>
+    </div>
+  </div>
+
+  <div class="suggestions">
+    <button class="suggestion" onclick="send('List all customers')">List all customers</button>
+    <button class="suggestion" onclick="send('Import number 8009998877')">Import number 8009998877</button>
+    <button class="suggestion" onclick="send('What is the status of 8001234567?')">Status of 8001234567</button>
+    <button class="suggestion" onclick="send('Create a customer named Test User with email test@example.com')">Create customer</button>
+  </div>
+
+  <div class="input-row">
+    <textarea id="input" placeholder="Ask me anything about your toll-free numbers…" rows="1"></textarea>
+    <button id="send" onclick="sendMessage()">Send</button>
+  </div>
+</div>
+
+<script>
+  const messagesEl = document.getElementById('messages');
+  const inputEl = document.getElementById('input');
+  const sendBtn = document.getElementById('send');
+  let history = [];
+
+  inputEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+
+  function send(text) {
+    inputEl.value = text;
+    sendMessage();
+  }
+
+  function appendMessage(role, text, toolCalls) {
+    const div = document.createElement('div');
+    div.className = `message ${role}`;
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = text;
+    div.appendChild(bubble);
+
+    if (toolCalls && toolCalls.length > 0) {
+      const tc = document.createElement('div');
+      tc.className = 'tool-calls';
+      toolCalls.forEach(t => {
+        const det = document.createElement('details');
+        det.className = 'tool-call';
+        const sum = document.createElement('summary');
+        sum.textContent = `${t.tool}(${JSON.stringify(t.args)})`;
+        const pre = document.createElement('pre');
+        pre.textContent = JSON.stringify(t.result, null, 2);
+        det.appendChild(sum);
+        det.appendChild(pre);
+        tc.appendChild(det);
+      });
+      div.appendChild(tc);
+    }
+
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function appendTyping() {
+    const div = document.createElement('div');
+    div.className = 'message assistant';
+    div.id = 'typing-indicator';
+    div.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function removeTyping() {
+    const el = document.getElementById('typing-indicator');
+    if (el) el.remove();
+  }
+
+  async function sendMessage() {
+    const text = inputEl.value.trim();
+    if (!text) return;
+
+    inputEl.value = '';
+    sendBtn.disabled = true;
+    appendMessage('user', text);
+    appendTyping();
+
+    try {
+      const res = await fetch('http://localhost:5001/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, history }),
+      });
+      const data = await res.json();
+      removeTyping();
+      appendMessage('assistant', data.reply, data.tool_calls);
+      history = data.history;
+    } catch (err) {
+      removeTyping();
+      appendMessage('assistant', 'Error: could not reach the agent. Make sure agent.py is running on port 5001.');
+    }
+
+    sendBtn.disabled = false;
+    inputEl.focus();
+  }
+</script>
+</body>
+</html>
