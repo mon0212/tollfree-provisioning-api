@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Toll-Free Provisioning</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; font-size: 14px;
+           background: #f0f2f5; color: #1f2328; min-height: 100vh; }
+
+    /* ── Header ── */
+    header { background: #1a1f2e; color: #fff; padding: 0 24px;
+             display: flex; align-items: center; justify-content: space-between; height: 52px; }
+    header h1 { font-size: 16px; font-weight: 600; letter-spacing: .3px; }
+    #jwt-wrap { display: flex; align-items: center; gap: 8px; }
+    #jwt-input { background: #2d3345; border: 1px solid #3d4460; color: #d0d7de;
+                 padding: 5px 10px; border-radius: 6px; font-size: 12px; width: 340px; }
+    #jwt-input::placeholder { color: #6e7a96; }
+    #jwt-badge { font-size: 11px; padding: 2px 8px; border-radius: 10px;
+                 background: #2a3b2a; color: #56d364; border: 1px solid #2ea04326; }
+    #jwt-badge.invalid { background: #3b2a2a; color: #f85149; border-color: #f8514926; }
+
+    /* ── Layout ── */
+    .layout { display: grid; grid-template-columns: 180px 1fr; min-height: calc(100vh - 52px); }
+
+    /* ── Sidebar ── */
+    nav { background: #fff; border-right: 1px solid #e5e7eb; padding: 16px 0; }
+    nav button { display: block; width: 100%; text-align: left; padding: 9px 20px;
+                 background: none; border: none; cursor: pointer; font-size: 13px; color: #57606a;
+                 border-left: 3px solid transparent; transition: all .15s; }
+    nav button:hover { background: #f7f8fa; color: #1f2328; }
+    nav button.active { background: #f0f6ff; color: #3b82d4; border-left-color: #3b82d4; font-weight: 600; }
+    nav hr { border: none; border-top: 1px solid #e5e7eb; margin: 8px 16px; }
+
+    /* ── Main ── */
+    main { padding: 24px; overflow-y: auto; }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── Cards ── */
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+            padding: 20px; margin-bottom: 20px; }
+    .card h2 { font-size: 14px; font-weight: 600; margin-bottom: 14px; color: #1f2328; }
+
+    /* ── Forms ── */
+    .form-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+    .field { display: flex; flex-direction: column; gap: 4px; min-width: 160px; }
+    .field label { font-size: 12px; color: #57606a; font-weight: 500; }
+    input[type=text], input[type=email], select {
+      padding: 7px 10px; border: 1px solid #d0d7de; border-radius: 6px;
+      font-size: 13px; color: #1f2328; background: #fff; outline: none; }
+    input[type=text]:focus, input[type=email]:focus, select:focus { border-color: #3b82d4; }
+
+    /* ── Buttons ── */
+    button.btn { padding: 7px 14px; border: none; border-radius: 6px; cursor: pointer;
+                 font-size: 13px; font-weight: 500; transition: opacity .15s; }
+    button.btn:hover { opacity: .85; }
+    button.btn:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-primary  { background: #3b82d4; color: #fff; }
+    .btn-success  { background: #1a7f37; color: #fff; }
+    .btn-danger   { background: #cf222e; color: #fff; }
+    .btn-warning  { background: #bf8700; color: #fff; }
+    .btn-secondary{ background: #e5e7eb; color: #1f2328; }
+
+    /* ── Table ── */
+    .tbl-wrap { overflow-x: auto; margin-top: 14px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: #f7f8fa; text-align: left; padding: 8px 12px;
+         font-weight: 600; color: #57606a; border-bottom: 1px solid #e5e7eb; }
+    td { padding: 8px 12px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f7f8fa; }
+
+    /* ── Status badges ── */
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px;
+             font-size: 11px; font-weight: 600; }
+    .badge-AVAILABLE  { background: #dafbe1; color: #1a7f37; }
+    .badge-RESERVED   { background: #fff8c5; color: #9a6700; }
+    .badge-ACTIVE     { background: #ddf4ff; color: #0969da; }
+    .badge-SUSPENDED  { background: #fff0e6; color: #bc4c00; }
+    .badge-RELEASED   { background: #f0f2f5; color: #57606a; }
+
+    /* ── Action buttons in table ── */
+    .action-btns { display: flex; gap: 5px; flex-wrap: wrap; }
+    .action-btns button { padding: 4px 10px; font-size: 11px; border-radius: 5px; }
+
+    /* ── Toast / response ── */
+    #toast { position: fixed; bottom: 24px; right: 24px; max-width: 380px;
+             background: #1a1f2e; color: #d0d7de; padding: 12px 16px; border-radius: 8px;
+             font-size: 13px; line-height: 1.5; display: none; z-index: 9999;
+             border-left: 4px solid #3b82d4; box-shadow: 0 4px 16px #0003; }
+    #toast.err { border-left-color: #f85149; }
+    #toast.ok  { border-left-color: #56d364; }
+
+    /* ── Pagination ── */
+    .pager { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+    .pager span { font-size: 12px; color: #57606a; }
+
+    /* ── Detail pre ── */
+    pre.detail { background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 6px;
+                 padding: 12px; font-size: 12px; white-space: pre-wrap; word-break: break-all; margin-top: 10px; }
+
+    /* ── Audit ── */
+    .audit-row { display: grid; grid-template-columns: 160px 90px 90px 1fr; gap: 8px;
+                 padding: 7px 0; border-bottom: 1px solid #f0f2f5; font-size: 12px; }
+    .audit-row:last-child { border-bottom: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>📞 Toll-Free Provisioning</h1>
+  <div id="jwt-wrap">
+    <input id="jwt-input" type="text" placeholder="Paste JWT token…" />
+    <span id="jwt-badge" class="invalid">No token</span>
+  </div>
+</header>
+
+<div class="layout">
+  <nav>
+    <button class="active" onclick="show('customers')">👤 Customers</button>
+    <button onclick="show('numbers')">🔢 Numbers</button>
+    <hr/>
+    <button onclick="show('provision')">⚡ Provision</button>
+    <button onclick="show('lifecycle')">🔄 Lifecycle</button>
+    <hr/>
+    <button onclick="show('audit')">📋 Audit Log</button>
+  </nav>
+
+  <main>
+
+    <!-- ═══════════ CUSTOMERS ═══════════ -->
+    <div id="page-customers" class="page active">
+      <div class="card">
+        <h2>Create Customer</h2>
+        <div class="form-row">
+          <div class="field">
+            <label>Name</label>
+            <input id="c-name" type="text" placeholder="Acme Corp" />
+          </div>
+          <div class="field">
+            <label>Email</label>
+            <input id="c-email" type="email" placeholder="acme@example.com" />
+          </div>
+          <button class="btn btn-primary" onclick="createCustomer()">Create</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Update Customer</h2>
+        <div class="form-row">
+          <div class="field">
+            <label>Customer ID</label>
+            <input id="cu-id" type="text" placeholder="UUID" style="width:280px" />
+          </div>
+          <div class="field">
+            <label>Name</label>
+            <input id="cu-name" type="text" placeholder="New name" />
+          </div>
+          <div class="field">
+            <label>Email</label>
+            <input id="cu-email" type="email" placeholder="new@example.com" />
+          </div>
+          <button class="btn btn-warning" onclick="updateCustomer()">Update</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Customers <button class="btn btn-secondary" style="float:right;margin-top:-2px" onclick="loadCustomers()">↻ Refresh</button></h2>
+        <div class="tbl-wrap">
+          <table id="customers-table">
+            <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Actions</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="pager">
+          <button class="btn btn-secondary" id="c-prev" onclick="customerPage(-1)">‹ Prev</button>
+          <span id="c-page-info">–</span>
+          <button class="btn btn-secondary" id="c-next" onclick="customerPage(1)">Next ›</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ NUMBERS ═══════════ -->
+    <div id="page-numbers" class="page">
+      <div class="card">
+        <h2>Import Number</h2>
+        <div class="form-row">
+          <div class="field">
+            <label>Number (10-digit 800…)</label>
+            <input id="n-number" type="text" placeholder="8001234567" />
+          </div>
+          <button class="btn btn-primary" onclick="importNumber()">Import</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Look Up Number</h2>
+        <div class="form-row">
+          <div class="field">
+            <label>Number</label>
+            <input id="n-lookup" type="text" placeholder="8001234567" />
+          </div>
+          <button class="btn btn-secondary" onclick="lookupNumber()">Look up</button>
+        </div>
+        <pre id="n-detail" class="detail" style="display:none"></pre>
+      </div>
+
+      <div class="card">
+        <h2>Numbers
+          <span style="margin-left:8px">
+            <select id="n-status-filter" onchange="loadNumbers()" style="font-size:12px;padding:4px 8px;">
+              <option value="">All statuses</option>
+              <option>AVAILABLE</option><option>RESERVED</option>
+              <option>ACTIVE</option><option>SUSPENDED</option><option>RELEASED</option>
+            </select>
+          </span>
+          <button class="btn btn-secondary" style="float:right;margin-top:-2px" onclick="loadNumbers()">↻ Refresh</button>
+        </h2>
+        <div class="tbl-wrap">
+          <table id="numbers-table">
+            <thead><tr><th>Number</th><th>Status</th><th>Customer ID</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="pager">
+          <button class="btn btn-secondary" id="n-prev" onclick="numberPage(-1)">‹ Prev</button>
+          <span id="n-page-info">–</span>
+          <button class="btn btn-secondary" id="n-next" onclick="numberPage(1)">Next ›</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ PROVISION ═══════════ -->
+    <div id="page-provision" class="page">
+      <div class="card">
+        <h2>Provision a Number</h2>
+        <p style="font-size:12px;color:#57606a;margin-bottom:14px">
+          Reserves an available 800 number for a customer. Idempotent for the same (customerId, number) pair.
+        </p>
+        <div class="form-row">
+          <div class="field">
+            <label>Customer ID</label>
+            <input id="p-cid" type="text" placeholder="UUID" style="width:280px" />
+          </div>
+          <div class="field">
+            <label>Number</label>
+            <input id="p-number" type="text" placeholder="8001234567" />
+          </div>
+          <button class="btn btn-success" onclick="provision()">Provision</button>
+        </div>
+        <pre id="p-result" class="detail" style="display:none"></pre>
+      </div>
+    </div>
+
+    <!-- ═══════════ LIFECYCLE ═══════════ -->
+    <div id="page-lifecycle" class="page">
+      <div class="card">
+        <h2>Lifecycle Transitions</h2>
+        <p style="font-size:12px;color:#57606a;margin-bottom:14px">
+          Enter a number and click the target state to trigger the transition.
+          Not all transitions are valid from every state — the API will reject invalid ones.
+        </p>
+        <div class="form-row" style="margin-bottom:14px">
+          <div class="field">
+            <label>Number</label>
+            <input id="lc-number" type="text" placeholder="8001234567" style="width:180px"/>
+          </div>
+          <button class="btn btn-secondary" onclick="lookupLc()">Check status</button>
+        </div>
+        <div id="lc-status-row" style="display:none;margin-bottom:14px;font-size:13px">
+          Current status: <strong id="lc-current">–</strong>
+        </div>
+        <div class="action-btns">
+          <button class="btn btn-primary"   onclick="doAction('ACTIVE')">→ ACTIVE</button>
+          <button class="btn btn-warning"   onclick="doAction('SUSPENDED')">→ SUSPENDED</button>
+          <button class="btn btn-secondary" onclick="doAction('AVAILABLE')">→ AVAILABLE (cancel)</button>
+          <button class="btn btn-danger"    onclick="doAction('RELEASED')">→ RELEASED</button>
+        </div>
+        <pre id="lc-result" class="detail" style="display:none"></pre>
+      </div>
+
+      <div class="card">
+        <h2>Valid transitions reference</h2>
+        <table>
+          <thead><tr><th>From</th><th>To</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><span class="badge badge-AVAILABLE">AVAILABLE</span></td><td><span class="badge badge-RESERVED">RESERVED</span></td><td>POST /api/v1/provisioning</td></tr>
+            <tr><td><span class="badge badge-RESERVED">RESERVED</span></td><td><span class="badge badge-AVAILABLE">AVAILABLE</span></td><td>Cancel reservation</td></tr>
+            <tr><td><span class="badge badge-RESERVED">RESERVED</span></td><td><span class="badge badge-ACTIVE">ACTIVE</span></td><td>Activate</td></tr>
+            <tr><td><span class="badge badge-ACTIVE">ACTIVE</span></td><td><span class="badge badge-SUSPENDED">SUSPENDED</span></td><td>Suspend</td></tr>
+            <tr><td><span class="badge badge-SUSPENDED">SUSPENDED</span></td><td><span class="badge badge-ACTIVE">ACTIVE</span></td><td>Reactivate</td></tr>
+            <tr><td><span class="badge badge-ACTIVE">ACTIVE</span></td><td><span class="badge badge-RELEASED">RELEASED</span></td><td>Release</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══════════ AUDIT ═══════════ -->
+    <div id="page-audit" class="page">
+      <div class="card">
+        <h2>Audit Log — look up by number</h2>
+        <p style="font-size:12px;color:#57606a;margin-bottom:14px">
+          Fetches the number's current status. Full audit history requires a dedicated endpoint;
+          this view uses the existing <code>GET /api/v1/numbers/{number}</code> and shows the current state.
+        </p>
+        <div class="form-row">
+          <div class="field">
+            <label>Number</label>
+            <input id="a-number" type="text" placeholder="8001234567" />
+          </div>
+          <button class="btn btn-secondary" onclick="loadAudit()">Fetch</button>
+        </div>
+        <div id="audit-result" style="margin-top:14px;display:none">
+          <div class="audit-row" style="font-weight:600;color:#57606a">
+            <span>Number</span><span>Status</span><span>Customer</span><span></span>
+          </div>
+          <div id="audit-rows"></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  /* ─── Config ─── */
+  const API = 'http://localhost:8080';
+
+  /* ─── JWT ─── */
+  const jwtInput = document.getElementById('jwt-input');
+  const jwtBadge = document.getElementById('jwt-badge');
+
+  function getToken() { return jwtInput.value.trim(); }
+
+  jwtInput.addEventListener('input', () => {
+    const t = getToken();
+    if (t) { jwtBadge.textContent = '✓ Token set'; jwtBadge.className = ''; }
+    else    { jwtBadge.textContent = 'No token';   jwtBadge.className = 'invalid'; }
+  });
+
+  /* ─── Nav ─── */
+  let currentPage = 'customers';
+  function show(page) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    document.getElementById('page-' + page).classList.add('active');
+    document.querySelectorAll('nav button')[['customers','numbers','provision','lifecycle','audit'].indexOf(page)].classList.add('active');
+    currentPage = page;
+    if (page === 'customers') loadCustomers();
+    if (page === 'numbers')   loadNumbers();
+  }
+
+  /* ─── Toast ─── */
+  let toastTimer;
+  function toast(msg, type = 'ok') {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.className = type; t.style.display = 'block';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.style.display = 'none', 4000);
+  }
+
+  /* ─── HTTP helpers ─── */
+  async function api(method, path, body) {
+    const headers = { 'Authorization': 'Bearer ' + getToken() };
+    if (body) headers['Content-Type'] = 'application/json';
+    const res = await fetch(API + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = text; }
+    return { ok: res.ok, status: res.status, data };
+  }
+
+  /* ─── Customers ─── */
+  let cPage = 0, cTotal = 0;
+
+  async function loadCustomers() {
+    const r = await api('GET', `/api/v1/customers?page=${cPage}&size=10`);
+    if (!r.ok) { toast('Failed to load customers: ' + (r.data?.message || r.status), 'err'); return; }
+    const tb = document.querySelector('#customers-table tbody');
+    tb.innerHTML = '';
+    (r.data.content || []).forEach(c => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><code style="font-size:11px">${c.id}</code>
+          <button class="btn btn-secondary" style="padding:2px 6px;font-size:10px;margin-left:4px"
+            onclick="navigator.clipboard.writeText('${c.id}').then(()=>toast('ID copied'))">copy</button>
+        </td>
+        <td>${esc(c.name)}</td>
+        <td>${esc(c.email)}</td>
+        <td>
+          <button class="btn btn-secondary" style="padding:3px 8px;font-size:11px"
+            onclick="prefillUpdate('${c.id}','${esc(c.name)}','${esc(c.email)}')">Edit</button>
+        </td>`;
+      tb.appendChild(tr);
+    });
+    cTotal = r.data.totalPages || 1;
+    document.getElementById('c-page-info').textContent = `Page ${cPage + 1} of ${cTotal}`;
+    document.getElementById('c-prev').disabled = cPage === 0;
+    document.getElementById('c-next').disabled = cPage >= cTotal - 1;
+  }
+
+  function customerPage(d) { cPage = Math.max(0, cPage + d); loadCustomers(); }
+
+  function prefillUpdate(id, name, email) {
+    document.getElementById('cu-id').value = id;
+    document.getElementById('cu-name').value = name;
+    document.getElementById('cu-email').value = email;
+    window.scrollTo(0, 0);
+  }
+
+  async function createCustomer() {
+    const name = document.getElementById('c-name').value.trim();
+    const email = document.getElementById('c-email').value.trim();
+    if (!name || !email) { toast('Name and email required', 'err'); return; }
+    const r = await api('POST', '/api/v1/customers', { name, email });
+    if (r.ok) { toast(`Customer created: ${r.data.id}`, 'ok'); loadCustomers(); }
+    else toast('Error: ' + (r.data?.message || JSON.stringify(r.data)), 'err');
+  }
+
+  async function updateCustomer() {
+    const id = document.getElementById('cu-id').value.trim();
+    const name = document.getElementById('cu-name').value.trim();
+    const email = document.getElementById('cu-email').value.trim();
+    if (!id || !name || !email) { toast('ID, name, and email required', 'err'); return; }
+    const r = await api('PUT', `/api/v1/customers/${id}`, { name, email });
+    if (r.ok) { toast('Customer updated', 'ok'); loadCustomers(); }
+    else toast('Error: ' + (r.data?.message || JSON.stringify(r.data)), 'err');
+  }
+
+  /* ─── Numbers ─── */
+  let nPage = 0, nTotal = 0;
+
+  async function loadNumbers() {
+    const status = document.getElementById('n-status-filter').value;
+    const q = status ? `&status=${status}` : '';
+    const r = await api('GET', `/api/v1/numbers?page=${nPage}&size=10${q}`);
+    if (!r.ok) { toast('Failed to load numbers: ' + (r.data?.message || r.status), 'err'); return; }
+    const tb = document.querySelector('#numbers-table tbody');
+    tb.innerHTML = '';
+    (r.data.content || []).forEach(n => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${n.number}</strong></td>
+        <td><span class="badge badge-${n.status}">${n.status}</span></td>
+        <td style="font-size:11px">${n.customerId || '—'}</td>`;
+      tb.appendChild(tr);
+    });
+    nTotal = r.data.totalPages || 1;
+    document.getElementById('n-page-info').textContent = `Page ${nPage + 1} of ${nTotal}`;
+    document.getElementById('n-prev').disabled = nPage === 0;
+    document.getElementById('n-next').disabled = nPage >= nTotal - 1;
+  }
+
+  function numberPage(d) { nPage = Math.max(0, nPage + d); loadNumbers(); }
+
+  async function importNumber() {
+    const number = document.getElementById('n-number').value.trim();
+    if (!number) { toast('Number required', 'err'); return; }
+    const r = await api('POST', '/api/v1/numbers', { number });
+    if (r.ok) { toast(`Number ${number} imported`, 'ok'); loadNumbers(); }
+    else toast('Error: ' + (r.data?.message || JSON.stringify(r.data)), 'err');
+  }
+
+  async function lookupNumber() {
+    const number = document.getElementById('n-lookup').value.trim();
+    if (!number) { toast('Number required', 'err'); return; }
+    const r = await api('GET', `/api/v1/numbers/${number}`);
+    const pre = document.getElementById('n-detail');
+    pre.style.display = 'block';
+    if (r.ok) pre.textContent = JSON.stringify(r.data, null, 2);
+    else { pre.textContent = JSON.stringify(r.data, null, 2); toast('Not found or error', 'err'); }
+  }
+
+  /* ─── Provision ─── */
+  async function provision() {
+    const customerId = document.getElementById('p-cid').value.trim();
+    const number     = document.getElementById('p-number').value.trim();
+    if (!customerId || !number) { toast('Customer ID and number required', 'err'); return; }
+    const r = await api('POST', '/api/v1/provisioning', { customerId, number });
+    const pre = document.getElementById('p-result');
+    pre.style.display = 'block';
+    pre.textContent = JSON.stringify(r.data, null, 2);
+    if (r.ok) toast(r.data.idempotent ? 'Already provisioned (idempotent)' : 'Number reserved!', 'ok');
+    else toast('Error: ' + (r.data?.message || JSON.stringify(r.data)), 'err');
+  }
+
+  /* ─── Lifecycle ─── */
+  async function lookupLc() {
+    const number = document.getElementById('lc-number').value.trim();
+    if (!number) { toast('Number required', 'err'); return; }
+    const r = await api('GET', `/api/v1/numbers/${number}`);
+    if (r.ok) {
+      document.getElementById('lc-current').innerHTML = `<span class="badge badge-${r.data.status}">${r.data.status}</span>`;
+      document.getElementById('lc-status-row').style.display = 'block';
+    } else toast('Number not found', 'err');
+  }
+
+  async function doAction(action) {
+    const number = document.getElementById('lc-number').value.trim();
+    if (!number) { toast('Enter a number first', 'err'); return; }
+    const r = await api('POST', `/api/v1/numbers/${number}/actions/${action}`);
+    const pre = document.getElementById('lc-result');
+    pre.style.display = 'block';
+    pre.textContent = JSON.stringify(r.data, null, 2);
+    if (r.ok) {
+      document.getElementById('lc-current').innerHTML = `<span class="badge badge-${r.data.status}">${r.data.status}</span>`;
+      toast(`Transitioned to ${action}`, 'ok');
+    } else toast('Error: ' + (r.data?.message || JSON.stringify(r.data)), 'err');
+  }
+
+  /* ─── Audit ─── */
+  async function loadAudit() {
+    const number = document.getElementById('a-number').value.trim();
+    if (!number) { toast('Number required', 'err'); return; }
+    const r = await api('GET', `/api/v1/numbers/${number}`);
+    const wrap = document.getElementById('audit-result');
+    const rows = document.getElementById('audit-rows');
+    wrap.style.display = 'block';
+    rows.innerHTML = '';
+    if (r.ok) {
+      const d = r.data;
+      const row = document.createElement('div');
+      row.className = 'audit-row';
+      row.innerHTML = `
+        <span>${d.number}</span>
+        <span><span class="badge badge-${d.status}">${d.status}</span></span>
+        <span style="font-size:11px">${d.customerId || '—'}</span>
+        <span style="color:#57606a;font-size:11px">(current state)</span>`;
+      rows.appendChild(row);
+    } else {
+      rows.innerHTML = `<div style="color:#f85149;font-size:13px;padding:8px 0">Not found or error: ${esc(JSON.stringify(r.data))}</div>`;
+    }
+  }
+
+  /* ─── Util ─── */
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  /* ─── Init ─── */
+  loadCustomers();
+</script>
+</body>
+</html>
