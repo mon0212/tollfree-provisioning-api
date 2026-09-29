@@ -1,4 +1,14 @@
 services:
+    ui:
+        image: nginx:alpine
+        volumes:
+            - ./ui/index.html:/usr/share/nginx/html/index.html:ro
+            - ./ui/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+        ports:
+            - "3000:3000"
+        depends_on:
+            - app
+
     app:
         build: .
         ports:
